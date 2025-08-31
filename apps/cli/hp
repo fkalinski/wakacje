@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Holiday Park CLI wrapper script
+# This script makes it easier to run the CLI from anywhere
+
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Run the CLI with all passed arguments
+node "$SCRIPT_DIR/dist/index.js" "$@"

@@ -1,0 +1,25 @@
+{
+  "name": "holiday-park-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "start": "turbo start",
+    "lint": "turbo lint",
+    "api:dev": "npm run dev --workspace=@holiday-park/api",
+    "web:dev": "npm run dev --workspace=@holiday-park/web",
+    "api:build": "npm run build --workspace=@holiday-park/api",
+    "web:build": "npm run build --workspace=@holiday-park/web"
+  },
+  "devDependencies": {
+    "turbo": "^1.11.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
