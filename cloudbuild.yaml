@@ -48,8 +48,12 @@ steps:
       - '1'
       - '--timeout'
       - '300'
+      - '--service-account'
+      - 'holiday-park-api@ai-lab-1-451411.iam.gserviceaccount.com'
       - '--set-env-vars'
-      - 'NODE_ENV=production'
+      - 'NODE_ENV=production,FIREBASE_PROJECT_ID=ai-lab-1-451411'
+      - '--update-secrets'
+      - 'JWT_SECRET=jwt-secret:latest,SCHEDULER_TOKEN=scheduler-token:latest'
 
 images:
   - 'gcr.io/$PROJECT_ID/holiday-park-api:$COMMIT_SHA'
