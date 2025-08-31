@@ -7,6 +7,12 @@ import executeRouter from './routes/execute';
 import webhooksRouter from './routes/webhooks';
 import monitoringRouter from './routes/monitoring';
 import resultsRouter from './routes/results';
+import healthRouter from './routes/health';
+
+// Security middleware
+import { security } from './middleware/security';
+import { jwtMiddleware, validateApiKey, requireAuth, optionalAuth } from './middleware/auth';
+import { apiLimiter, adaptiveLimiter, requestTracker } from './middleware/rateLimiter';
 
 // Load environment variables
 dotenv.config();
@@ -14,41 +20,51 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Middleware
+// Trust proxy (important for rate limiting and IP detection in production)
+app.set('trust proxy', true);
+
+// Apply security middleware first
+app.use(security());
+
+// CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-app.vercel.app'] // Replace with your Vercel URL
-    : ['http://localhost:3000'],
-  credentials: true
+    ? process.env.CORS_ORIGIN?.split(',') || ['https://your-app.vercel.app']
+    : ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-correlation-id', 'x-scheduler-token'],
+  exposedHeaders: ['x-correlation-id', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset']
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Request logging
-app.use((req, _res, next) => {
-  logger.info(`${req.method} ${req.path}`, {
-    query: req.query,
-    body: req.body,
-    headers: req.headers
-  });
-  next();
-});
+// Body parsing middleware with size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Routes
-app.use('/api/searches', searchesRouter);
-app.use('/api/execute', executeRouter);
-app.use('/api/webhooks', webhooksRouter);
-app.use('/api/monitoring', monitoringRouter);
-app.use('/api/results', resultsRouter);
+// Request tracking and logging
+app.use(requestTracker);
 
-// Health check
-app.get('/health', (_req, res) => {
-  res.json({ 
-    status: 'healthy',
-    service: 'holiday-park-api',
-    timestamp: new Date().toISOString()
-  });
-});
+// JWT and API key authentication middleware (applied to all routes)
+app.use(jwtMiddleware);
+app.use(validateApiKey);
+
+// Global rate limiting (adaptive based on auth status)
+app.use('/api', adaptiveLimiter);
+
+// Health check routes (no auth required)
+app.use('/health', healthRouter);
+
+// API Routes with authentication
+// Public routes (optional auth - enhanced features with auth)
+app.use('/api/searches', optionalAuth, searchesRouter);
+app.use('/api/results', optionalAuth, resultsRouter);
+
+// Protected routes (require authentication)
+app.use('/api/execute', requireAuth, executeRouter);
+app.use('/api/monitoring', requireAuth, monitoringRouter);
+
+// Webhook routes (special authentication - uses scheduler token)
+app.use('/api/webhooks', webhooksRouter); // Has its own auth middleware
 
 // Root endpoint
 app.get('/', (_req, res) => {

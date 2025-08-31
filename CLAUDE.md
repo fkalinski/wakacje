@@ -353,6 +353,27 @@ gcloud scheduler jobs create http holiday-park-monitor \
 }
 ```
 
+#### Why Vercel Over GCP for Next.js Hosting
+
+**Recommendation**: Use Vercel for the Next.js web application while keeping GCP for API/backend services.
+
+**Key Benefits of Vercel:**
+- **Native Next.js Optimization**: Built-in ISR, automatic image optimization, Edge Functions
+- **Zero-Config Deployment**: GitHub integration with automatic preview deployments
+- **Cost Efficiency**: Free tier (100GB bandwidth/month) vs ~$20+/month on Cloud Run
+- **Superior Performance**: Edge Network optimized specifically for Next.js
+- **Developer Experience**: No Docker/container management required
+
+**When to Consider GCP Instead:**
+- Traffic exceeds 100GB bandwidth/month (Vercel free tier limit)
+- Specific GCP security requirements (Cloud Armor, VPC)
+- Compliance needs for single vendor
+- Very high traffic requiring detailed cost optimization
+
+**Cost Comparison:**
+- **Current (Vercel + GCP)**: ~$5-30/month (likely free tier for web)
+- **All GCP**: ~$23-37/month (includes CDN for performance parity)
+
 ### CLI Distribution
 
 ```bash

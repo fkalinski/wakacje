@@ -1,14 +1,89 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read access to all documents for authenticated users
-    // In production, you might want to add authentication
-    match /{document=**} {
-      allow read: if true;
-      allow write: if false;
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
     }
     
-    // API service has full access (using service account)
-    // This is handled by Firebase Admin SDK, not these rules
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidApiKey() {
+      return isAuthenticated() && 
+        request.auth.token.apiKey == true;
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && 
+        request.auth.token.role == role;
+    }
+    
+    // Searches collection - user-owned searches
+    match /searches/{searchId} {
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        hasRole('admin') ||
+        isValidApiKey()
+      );
+      
+      allow create: if isAuthenticated() && (
+        isOwner(request.resource.data.userId) ||
+        hasRole('admin') ||
+        isValidApiKey()
+      );
+      
+      allow update: if isAuthenticated() && (
+        isOwner(resource.data.userId) ||
+        hasRole('admin') ||
+        isValidApiKey()
+      );
+      
+      allow delete: if isAuthenticated() && (
+        isOwner(resource.data.userId) ||
+        hasRole('admin')
+      );
+    }
+    
+    // Availabilities collection - read-only for users
+    match /availabilities/{availabilityId} {
+      allow read: if isAuthenticated();
+      allow write: if hasRole('admin') || isValidApiKey();
+    }
+    
+    // Search results collection - read-only for users
+    match /searchResults/{resultId} {
+      allow read: if isAuthenticated();
+      allow write: if hasRole('admin') || isValidApiKey();
+    }
+    
+    // API Keys collection - admin only
+    match /apiKeys/{keyId} {
+      allow read: if hasRole('admin');
+      allow write: if hasRole('admin');
+    }
+    
+    // User profiles collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (
+        isOwner(userId) ||
+        hasRole('admin')
+      );
+      
+      allow update: if isAuthenticated() && (
+        isOwner(userId) ||
+        hasRole('admin')
+      );
+      
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow delete: if hasRole('admin');
+    }
+    
+    // System configuration - admin only
+    match /config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if hasRole('admin');
+    }
   }
 }

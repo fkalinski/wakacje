@@ -2,22 +2,14 @@ import { Router } from 'express';
 import { searchExecutorService } from '../services/search-executor';
 import { ApiResponse } from '@holiday-park/shared';
 import { logger } from '../utils/logger';
+import { requireSchedulerToken } from '../middleware/auth';
+import { strictLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
-// Cloud Scheduler webhook
-router.post('/scheduler', async (req, res) => {
+// Cloud Scheduler webhook with authentication and rate limiting
+router.post('/scheduler', strictLimiter, requireSchedulerToken, async (req, res) => {
   try {
-    // Verify the request is from Cloud Scheduler
-    const token = req.headers['x-scheduler-token'];
-    if (token !== process.env.SCHEDULER_SECRET) {
-      logger.warn('Unauthorized scheduler webhook attempt');
-      const response: ApiResponse<null> = {
-        success: false,
-        error: 'Unauthorized'
-      };
-      return res.status(401).json(response);
-    }
     
     // Check if specific search ID is provided
     const searchId = req.body.searchId || req.query.searchId;
