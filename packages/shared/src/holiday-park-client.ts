@@ -8,8 +8,15 @@ import {
   Availability,
   RESORT_NAMES,
   ACCOMMODATION_TYPE_NAMES
-} from '@holiday-park/shared';
-import chalk from 'chalk';
+} from './types';
+import { ILogger } from './interfaces/logger';
+import { IProgressReporter } from './interfaces/progress-reporter';
+
+export interface HolidayParkClientOptions {
+  baseUrl?: string;
+  logger?: ILogger;
+  progressReporter?: IProgressReporter;
+}
 
 export class HolidayParkClient {
   private client: AxiosInstance;
@@ -18,9 +25,13 @@ export class HolidayParkClient {
   private initialized: boolean = false;
   private resortsCache: Map<number, HolidayParkResort> = new Map();
   private accommodationTypesCache: Map<number, HolidayParkAccommodationType> = new Map();
+  private logger?: ILogger;
+  private progressReporter?: IProgressReporter;
 
-  constructor() {
-    this.baseUrl = process.env.HOLIDAY_PARK_API_URL || 'https://rezerwuj.holidaypark.pl';
+  constructor(options: HolidayParkClientOptions = {}) {
+    this.baseUrl = options.baseUrl || process.env.HOLIDAY_PARK_API_URL || 'https://rezerwuj.holidaypark.pl';
+    this.logger = options.logger;
+    this.progressReporter = options.progressReporter;
     this.cookieJar = new CookieJar();
     
     this.client = wrapper(axios.create({
@@ -42,7 +53,8 @@ export class HolidayParkClient {
     if (this.initialized) return;
 
     try {
-      console.log(chalk.gray('Initializing Holiday Park client...'));
+      this.logger?.info('Initializing Holiday Park client...');
+      this.progressReporter?.start('Initializing Holiday Park client...');
       
       // Load initial page to get cookies
       await this.client.get('/');
@@ -66,10 +78,14 @@ export class HolidayParkClient {
       }
 
       this.initialized = true;
-      console.log(chalk.green(`✓ Client initialized: ${this.resortsCache.size} resorts, ${this.accommodationTypesCache.size} accommodation types`));
+      const message = `Holiday Park client initialized. Loaded ${this.resortsCache.size} resorts and ${this.accommodationTypesCache.size} accommodation types`;
+      this.logger?.info(message);
+      this.progressReporter?.succeed(message);
     } catch (error) {
-      console.error(chalk.red('Failed to initialize Holiday Park client:'), error);
-      throw new Error('Failed to initialize Holiday Park client');
+      const errorMessage = 'Failed to initialize Holiday Park client';
+      this.logger?.error(errorMessage, error);
+      this.progressReporter?.fail(errorMessage);
+      throw new Error(errorMessage);
     }
   }
 
@@ -82,6 +98,8 @@ export class HolidayParkClient {
     await this.initialize();
 
     try {
+      this.logger?.debug(`Checking availability from ${dateFrom} to ${dateTo}`);
+      
       const response = await this.client.post(
         '/api/reservation/reservation-check-accommodation-type/',
         {
@@ -156,10 +174,31 @@ export class HolidayParkClient {
         }
       }
 
+      this.logger?.debug(`Found ${availabilities.length} availabilities`);
       return availabilities;
     } catch (error) {
-      console.error(chalk.red('Failed to check availability:'), error);
+      this.logger?.error('Failed to check availability:', error);
       throw new Error('Failed to check availability');
+    }
+  }
+
+  async getResortDetails(resortId: number, dateFrom: string, dateTo: string): Promise<HolidayParkResort | null> {
+    await this.initialize();
+
+    try {
+      const response = await this.client.get(
+        `/api/reservation/resorts/${resortId}/`,
+        {
+          params: {
+            date_from: dateFrom,
+            date_to: dateTo
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      this.logger?.error(`Failed to get resort ${resortId} details:`, error);
+      return null;
     }
   }
 

@@ -1,9 +1,10 @@
 'use client';
 
-import { Search, RESORT_NAMES, ACCOMMODATION_TYPE_NAMES } from '@holiday-park/shared';
+import { Search, RESORT_NAMES, ACCOMMODATION_TYPE_NAMES } from '@holiday-park/shared/client';
 import { api } from '@/lib/api-client';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
+import Link from 'next/link';
 
 interface SearchListProps {
   searches: Search[];
@@ -83,6 +84,12 @@ export function SearchList({ searches, onDelete, onUpdate }: SearchListProps) {
               </p>
             </div>
             <div className="flex gap-2">
+              <Link
+                href={`/results?searchId=${search.id}`}
+                className="px-3 py-1 text-sm rounded-md border border-blue-300 text-blue-600 hover:bg-blue-50"
+              >
+                View Results
+              </Link>
               <button
                 onClick={() => handleToggle(search)}
                 className="px-3 py-1 text-sm rounded-md border border-gray-300 hover:bg-gray-50"

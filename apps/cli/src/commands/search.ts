@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { Search, DateRange, RESORT_NAMES, ACCOMMODATION_TYPE_NAMES } from '@holiday-park/shared';
 import { searchExecutor } from '../services/search-executor.js';
-import { storageService } from '../services/storage.js';
+import { createStorageService, AdapterType } from '../services/storage.js';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import Table from 'cli-table3';
@@ -15,9 +15,20 @@ export const searchCommand = new Command('search')
   .option('-n, --name <name>', 'Name for the search')
   .option('--save', 'Save this search for future use')
   .option('--interactive', 'Interactive mode to configure search')
+  .option('--remote', 'Use remote Firebase storage')
+  .option('--local', 'Use local SQLite storage (default)')
   .action(async (options) => {
     try {
-      await storageService.initialize();
+      // Determine which adapter to use
+      let adapterType: AdapterType | undefined;
+      if (options.remote) {
+        adapterType = 'firebase';
+      } else if (options.local) {
+        adapterType = 'sqlite';
+      }
+      
+      // Create storage service with appropriate adapter
+      const storageService = await createStorageService(adapterType);
 
       let search: Search;
 

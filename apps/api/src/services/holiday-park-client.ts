@@ -5,7 +5,6 @@ import {
   HolidayParkAvailability, 
   HolidayParkResort,
   HolidayParkAccommodationType,
-  CheckAvailabilityRequest,
   Availability,
   RESORT_NAMES,
   ACCOMMODATION_TYPE_NAMES

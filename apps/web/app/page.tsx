@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search } from '@holiday-park/shared';
+import { Search } from '@holiday-park/shared/client';
 import { api } from '@/lib/api-client';
 import { SearchList } from '@/components/SearchList';
 import { CreateSearchButton } from '@/components/CreateSearchButton';

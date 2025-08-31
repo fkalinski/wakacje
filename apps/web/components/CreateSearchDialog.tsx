@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, RESORT_NAMES, ACCOMMODATION_TYPE_NAMES } from '@holiday-park/shared';
+import { Search, RESORT_NAMES, ACCOMMODATION_TYPE_NAMES } from '@holiday-park/shared/client';
 import { api } from '@/lib/api-client';
 import toast from 'react-hot-toast';
 
@@ -151,7 +151,7 @@ export function CreateSearchDialog({ isOpen, onClose, onSearchCreated }: CreateS
                     onChange={(e) => updateDateRange(index, 'to', e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
-                  {formData.dateRanges.length > 1 && (
+                  {formData.dateRanges && formData.dateRanges.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeDateRange(index)}

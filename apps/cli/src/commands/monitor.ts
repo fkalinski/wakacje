@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { searchExecutor } from '../services/search-executor.js';
-import { storageService } from '../services/storage.js';
+import { createStorageService, AdapterType } from '../services/storage.js';
 import chalk from 'chalk';
 
 export const monitorCommand = new Command('monitor')
@@ -8,9 +8,20 @@ export const monitorCommand = new Command('monitor')
   .option('-i, --interval <minutes>', 'Check interval in minutes', '30')
   .option('-o, --once', 'Run all searches once and exit')
   .option('-s, --search <id>', 'Monitor specific search by ID')
+  .option('--remote', 'Use remote Firebase storage')
+  .option('--local', 'Use local SQLite storage (default)')
   .action(async (options) => {
     try {
-      await storageService.initialize();
+      // Determine which adapter to use
+      let adapterType: AdapterType | undefined;
+      if (options.remote) {
+        adapterType = 'firebase';
+      } else if (options.local) {
+        adapterType = 'sqlite';
+      }
+      
+      // Create storage service with appropriate adapter
+      const storageService = await createStorageService(adapterType);
 
       if (options.once) {
         // Run once and exit
@@ -39,13 +50,56 @@ export const monitorCommand = new Command('monitor')
       console.log(chalk.gray(`Check interval: ${intervalMinutes} minutes`));
       console.log(chalk.gray(`Press Ctrl+C to stop\n`));
 
+      // Define the monitoring cycle function with access to storageService
+      const runCycle = async () => {
+        const timestamp = new Date().toLocaleString();
+        console.log(chalk.blue(`\n[${timestamp}] Running monitoring cycle...`));
+        
+        try {
+          if (options.search) {
+            const search = await storageService.getSearch(options.search);
+            if (!search) {
+              console.error(chalk.red(`Search ${options.search} not found`));
+              return;
+            }
+            
+            // Check if it's time to run based on schedule
+            if (shouldRunSearch(search)) {
+              await searchExecutor.executeSearch(search);
+            } else {
+              const nextRun = search.schedule.nextRun;
+              console.log(chalk.gray(`Search "${search.name}" scheduled for ${nextRun?.toLocaleString()}`));
+            }
+          } else {
+            // Get all enabled searches
+            const searches = await storageService.getEnabledSearches();
+            
+            if (searches.length === 0) {
+              console.log(chalk.yellow('No enabled searches found'));
+              return;
+            }
+            
+            console.log(chalk.gray(`Found ${searches.length} enabled searches`));
+            
+            for (const search of searches) {
+              if (shouldRunSearch(search)) {
+                await searchExecutor.executeSearch(search);
+              } else {
+                const nextRun = search.schedule.nextRun;
+                console.log(chalk.gray(`Search "${search.name}" scheduled for ${nextRun?.toLocaleString()}`));
+              }
+            }
+          }
+        } catch (error) {
+          console.error(chalk.red('Error in monitoring cycle:'), error);
+        }
+      };
+
       // Run immediately
-      await runMonitoringCycle(options.search);
+      await runCycle();
 
       // Schedule periodic runs
-      setInterval(async () => {
-        await runMonitoringCycle(options.search);
-      }, intervalMs);
+      setInterval(runCycle, intervalMs);
 
       // Keep process alive
       process.on('SIGINT', () => {
@@ -59,59 +113,6 @@ export const monitorCommand = new Command('monitor')
     }
   });
 
-async function runMonitoringCycle(searchId?: string): Promise<void> {
-  const timestamp = new Date().toLocaleString();
-  console.log(chalk.gray(`\n[${timestamp}] Starting monitoring cycle...`));
-
-  try {
-    if (searchId) {
-      const search = await storageService.getSearch(searchId);
-      if (!search) {
-        console.error(chalk.red(`Search ${searchId} not found`));
-        return;
-      }
-      
-      // Check if it's time to run based on schedule
-      if (shouldRunSearch(search)) {
-        await searchExecutor.executeSearch(search);
-      } else {
-        const nextRun = search.schedule.nextRun;
-        console.log(chalk.gray(`Search "${search.name}" scheduled for ${nextRun?.toLocaleString()}`));
-      }
-    } else {
-      // Get all enabled searches
-      const searches = await storageService.getEnabledSearches();
-      
-      if (searches.length === 0) {
-        console.log(chalk.yellow('No enabled searches found'));
-        return;
-      }
-
-      console.log(chalk.cyan(`Found ${searches.length} enabled searches`));
-
-      for (const search of searches) {
-        if (!search.id) continue;
-        
-        // Check if it's time to run based on schedule
-        if (shouldRunSearch(search)) {
-          try {
-            console.log(chalk.blue(`\n▶ Running: ${search.name}`));
-            await searchExecutor.executeSearch(search, false);
-          } catch (error) {
-            console.error(chalk.red(`Failed to execute search ${search.name}:`), error);
-          }
-        } else {
-          const nextRun = search.schedule.nextRun;
-          console.log(chalk.gray(`⏭  Skipping "${search.name}" - next run: ${nextRun?.toLocaleString()}`));
-        }
-      }
-    }
-
-    console.log(chalk.green(`\n✓ Monitoring cycle completed`));
-  } catch (error) {
-    console.error(chalk.red('Error in monitoring cycle:'), error);
-  }
-}
 
 function shouldRunSearch(search: any): boolean {
   if (!search.schedule.nextRun) {

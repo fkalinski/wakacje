@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch src/index-refactored.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/index-refactored.js",
     "lint": "eslint src/"
   },
   "dependencies": {

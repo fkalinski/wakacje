@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { searchExecutor } from '../services/search-executor';
+import { searchExecutorService } from '../services/search-executor';
 import { ApiResponse } from '@holiday-park/shared';
 import { logger } from '../utils/logger';
 
@@ -24,20 +24,20 @@ router.post('/scheduler', async (req, res) => {
     
     if (searchId) {
       // Execute specific search
-      searchExecutor.executeSearch(searchId as string)
-        .then(result => {
+      searchExecutorService.executeSearch(searchId as string)
+        .then(() => {
           logger.info(`Scheduled search ${searchId} executed successfully`);
         })
-        .catch(error => {
+        .catch((error: any) => {
           logger.error(`Scheduled search ${searchId} execution failed:`, error);
         });
     } else {
       // Execute all due searches
-      searchExecutor.executeAllDueSearches()
+      searchExecutorService.executeAllDueSearches()
         .then(() => {
           logger.info('All scheduled searches executed successfully');
         })
-        .catch(error => {
+        .catch((error: any) => {
           logger.error('Failed to execute scheduled searches:', error);
         });
     }
@@ -59,7 +59,7 @@ router.post('/scheduler', async (req, res) => {
 });
 
 // Health check for Cloud Run
-router.get('/health', (req, res) => {
+router.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 

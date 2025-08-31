@@ -5,7 +5,7 @@ import { ApiResponse } from '@holiday-park/shared';
 const router = Router();
 
 // Get rate limiter status
-router.get('/rate-limiter', (req, res) => {
+router.get('/rate-limiter', (_req, res) => {
   const status = {
     requestRate: globalRateLimiter.getRequestRate(),
     averageResponseTime: globalRateLimiter.getAverageResponseTime(),

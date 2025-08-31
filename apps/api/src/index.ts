@@ -6,6 +6,7 @@ import searchesRouter from './routes/searches';
 import executeRouter from './routes/execute';
 import webhooksRouter from './routes/webhooks';
 import monitoringRouter from './routes/monitoring';
+import resultsRouter from './routes/results';
 
 // Load environment variables
 dotenv.config();
@@ -24,7 +25,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Request logging
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   logger.info(`${req.method} ${req.path}`, {
     query: req.query,
     body: req.body,
@@ -38,9 +39,10 @@ app.use('/api/searches', searchesRouter);
 app.use('/api/execute', executeRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/monitoring', monitoringRouter);
+app.use('/api/results', resultsRouter);
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ 
     status: 'healthy',
     service: 'holiday-park-api',
@@ -49,7 +51,7 @@ app.get('/health', (req, res) => {
 });
 
 // Root endpoint
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.json({
     name: 'Holiday Park Monitor API',
     version: '1.0.0',
@@ -63,7 +65,7 @@ app.get('/', (req, res) => {
 });
 
 // Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error('Unhandled error:', err);
   res.status(500).json({
     success: false,
@@ -72,7 +74,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
   res.status(404).json({
     success: false,
     error: 'Endpoint not found'

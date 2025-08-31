@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Search, SearchResult, ApiResponse } from '@holiday-park/shared';
+import { Search, SearchResult, ApiResponse } from '@holiday-park/shared/client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -28,12 +28,12 @@ export const api = {
     return response.data.data;
   },
 
-  async createSearch(search: Omit<Search, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    const response = await apiClient.post<ApiResponse<{ id: string }>>('/api/searches', search);
+  async createSearch(search: Omit<Search, 'id' | 'createdAt' | 'updatedAt'>): Promise<Search> {
+    const response = await apiClient.post<ApiResponse<Search>>('/api/searches', search);
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.error);
     }
-    return response.data.data.id;
+    return response.data.data;
   },
 
   async updateSearch(id: string, updates: Partial<Search>): Promise<void> {

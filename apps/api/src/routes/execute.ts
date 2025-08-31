@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { searchExecutor } from '../services/search-executor';
+import { searchExecutorService } from '../services/search-executor';
 import { ApiResponse } from '@holiday-park/shared';
 import { logger } from '../utils/logger';
 
@@ -9,8 +9,8 @@ const router = Router();
 router.post('/:id', async (req, res) => {
   try {
     // Start execution in background and return immediately
-    searchExecutor.executeSearch(req.params.id)
-      .then(result => {
+    searchExecutorService.executeSearch(req.params.id)
+      .then(() => {
         logger.info(`Search ${req.params.id} executed successfully`);
       })
       .catch(error => {
@@ -34,10 +34,10 @@ router.post('/:id', async (req, res) => {
 });
 
 // Execute all due searches (for manual trigger)
-router.post('/', async (req, res) => {
+router.post('/', async (_req, res) => {
   try {
     // Start execution in background
-    searchExecutor.executeAllDueSearches()
+    searchExecutorService.executeAllDueSearches()
       .then(() => {
         logger.info('All due searches executed successfully');
       })

@@ -1,76 +1,84 @@
 import nodemailer from 'nodemailer';
-import { Search, SearchResult, Availability } from '@holiday-park/shared';
-import { firebaseService } from './firebase-admin';
-import { logger } from '../utils/logger';
+import { INotificationAdapter } from '../interfaces/notification';
+import { ILogger } from '../interfaces/logger';
+import { Search, SearchResult, Availability } from '../types';
 
-export class NotificationService {
+export interface EmailNotificationOptions {
+  smtp: {
+    host: string;
+    port: number;
+    secure: boolean;
+    auth: {
+      user: string;
+      pass: string;
+    };
+  };
+  from: string;
+  logger?: ILogger;
+}
+
+export class EmailNotificationAdapter implements INotificationAdapter {
   private transporter: nodemailer.Transporter;
+  private from: string;
+  private logger?: ILogger;
 
-  constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+  constructor(options: EmailNotificationOptions) {
+    this.from = options.from;
+    this.logger = options.logger;
+    this.transporter = nodemailer.createTransport(options.smtp);
   }
 
-  async sendSearchResultEmail(search: Search, result: SearchResult): Promise<void> {
-    if (!search.id || !result.id) {
-      throw new Error('Search and result must have IDs');
+  async sendNotification(search: Search, result: SearchResult): Promise<void> {
+    if (!search.notifications.email) {
+      return;
     }
 
     const hasChanges = result.changes && 
                       (result.changes.new.length > 0 || result.changes.removed.length > 0);
 
-    const subject = this.generateSubject(search, result, hasChanges || false);
+    const subject = this.generateSubject(search, result, hasChanges);
     const html = this.generateHtmlContent(search, result);
 
     try {
       await this.transporter.sendMail({
-        from: process.env.EMAIL_FROM || 'Holiday Park Monitor <noreply@example.com>',
+        from: this.from,
         to: search.notifications.email,
         subject,
         html,
       });
 
-      await firebaseService.logNotification({
-        searchId: search.id,
-        resultId: result.id,
-        sentAt: new Date(),
-        recipient: search.notifications.email,
-        subject,
-        newAvailabilities: result.changes?.new.length || 0,
-        removedAvailabilities: result.changes?.removed.length || 0,
-        success: true,
-      });
-
-      logger.info(`Email sent to ${search.notifications.email} for search ${search.name}`);
+      this.logger?.info(`Email sent to ${search.notifications.email} for search ${search.name}`);
     } catch (error) {
-      logger.error('Failed to send email:', error);
-
-      if (search.id && result.id) {
-        await firebaseService.logNotification({
-          searchId: search.id,
-          resultId: result.id,
-          sentAt: new Date(),
-          recipient: search.notifications.email,
-          subject,
-          newAvailabilities: result.changes?.new.length || 0,
-          removedAvailabilities: result.changes?.removed.length || 0,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-
+      this.logger?.error('Failed to send email:', error);
       throw error;
     }
   }
 
-  private generateSubject(search: Search, result: SearchResult, hasChanges: boolean): string {
+  async sendError(search: Search, error: Error): Promise<void> {
+    if (!search.notifications.email) {
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: this.from,
+        to: search.notifications.email,
+        subject: `Holiday Park - ${search.name} - Error`,
+        html: `
+          <h2>Error executing search: ${search.name}</h2>
+          <p>An error occurred while checking for availabilities:</p>
+          <pre>${error.message}</pre>
+          <p>The search will be retried on the next scheduled run.</p>
+        `,
+      });
+
+      this.logger?.info(`Error email sent to ${search.notifications.email}`);
+    } catch (sendError) {
+      this.logger?.error('Failed to send error email:', sendError);
+    }
+  }
+
+  private generateSubject(search: Search, result: SearchResult, hasChanges: boolean | undefined): string {
     if (!hasChanges) {
       return `Holiday Park - ${search.name} - ${result.availabilities.length} dostępnych terminów`;
     }
@@ -231,10 +239,11 @@ export class NotificationService {
 `;
     }
 
-    // All current availabilities
+    // All current availabilities (limited to 10)
     if (result.availabilities.length > 0) {
+      const displayCount = Math.min(result.availabilities.length, 10);
       html += `
-  <h2>Wszystkie dostępne terminy</h2>
+  <h2>Wszystkie dostępne terminy (pierwsze ${displayCount})</h2>
   <table>
     <thead>
       <tr>
@@ -248,13 +257,16 @@ export class NotificationService {
     </thead>
     <tbody>
 `;
-      for (const availability of result.availabilities) {
-        html += this.generateTableRow(availability);
+      for (let i = 0; i < displayCount; i++) {
+        html += this.generateTableRow(result.availabilities[i]);
       }
       html += `
     </tbody>
   </table>
 `;
+      if (result.availabilities.length > displayCount) {
+        html += `<p><em>... i ${result.availabilities.length - displayCount} więcej</em></p>`;
+      }
     } else {
       html += `
   <p><strong>Brak dostępnych terminów spełniających kryteria wyszukiwania.</strong></p>
@@ -311,11 +323,3 @@ export class NotificationService {
     return row;
   }
 }
-
-// Add missing method to firebase service
-declare module './firebase-admin' {
-  interface FirebaseService {
-    updateSearchResult(resultId: string, updates: Partial<SearchResult>): Promise<void>;
-  }
-}
-

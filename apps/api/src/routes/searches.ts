@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { firebaseService } from '../services/firebase-admin';
+import { persistenceAdapter } from '../services/persistence';
 import { Search, ApiResponse } from '@holiday-park/shared';
 import { logger } from '../utils/logger';
 
@@ -32,10 +32,17 @@ const updateSearchSchema = createSearchSchema.partial();
 // Get all searches
 router.get('/', async (req, res) => {
   try {
+    if (!persistenceAdapter) {
+      return res.status(503).json({
+        success: false,
+        error: 'Persistence layer not available'
+      });
+    }
+    
     const enabled = req.query.enabled === 'true' ? true : 
                    req.query.enabled === 'false' ? false : undefined;
     
-    const searches = await firebaseService.getAllSearches(enabled);
+    const searches = await persistenceAdapter.getAllSearches(enabled);
     
     const response: ApiResponse<Search[]> = {
       success: true,
@@ -56,7 +63,7 @@ router.get('/', async (req, res) => {
 // Get single search
 router.get('/:id', async (req, res) => {
   try {
-    const search = await firebaseService.getSearch(req.params.id);
+    const search = await persistenceAdapter.getSearch(req.params.id);
     
     if (!search) {
       const response: ApiResponse<null> = {
@@ -73,7 +80,7 @@ router.get('/:id', async (req, res) => {
     
     res.json(response);
   } catch (error) {
-    logger.error(`Failed to get search ${req.params.id}:`, error);
+    logger.error('Failed to get search:', error);
     const response: ApiResponse<null> = {
       success: false,
       error: 'Failed to get search'
@@ -82,26 +89,29 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create search
+// Create new search
 router.post('/', async (req, res) => {
   try {
     const validatedData = createSearchSchema.parse(req.body);
     
-    // Calculate initial next run
-    const nextRun = calculateInitialNextRun(validatedData.schedule.frequency);
+    // Calculate next run time based on frequency
+    const nextRun = calculateNextRun(validatedData.schedule.frequency);
     
-    const searchId = await firebaseService.createSearch({
+    const searchData = {
       ...validatedData,
       schedule: {
         ...validatedData.schedule,
         lastRun: null,
         nextRun
       }
-    });
+    };
     
-    const response: ApiResponse<{ id: string }> = {
+    const searchId = await persistenceAdapter.createSearch(searchData);
+    const search = await persistenceAdapter.getSearch(searchId);
+    
+    const response: ApiResponse<Search> = {
       success: true,
-      data: { id: searchId }
+      data: search!
     };
     
     res.status(201).json(response);
@@ -109,7 +119,8 @@ router.post('/', async (req, res) => {
     if (error instanceof z.ZodError) {
       const response: ApiResponse<null> = {
         success: false,
-        error: `Validation error: ${error.errors.map(e => e.message).join(', ')}`
+        error: 'Invalid request data',
+        details: error.errors
       };
       return res.status(400).json(response);
     }
@@ -128,15 +139,31 @@ router.put('/:id', async (req, res) => {
   try {
     const validatedData = updateSearchSchema.parse(req.body);
     
-    // If schedule frequency changed, recalculate next run
-    if (validatedData.schedule?.frequency) {
-      validatedData.schedule.nextRun = calculateInitialNextRun(validatedData.schedule.frequency);
+    const existing = await persistenceAdapter.getSearch(req.params.id);
+    if (!existing) {
+      const response: ApiResponse<null> = {
+        success: false,
+        error: 'Search not found'
+      };
+      return res.status(404).json(response);
     }
     
-    await firebaseService.updateSearch(req.params.id, validatedData);
+    // If schedule frequency changed, update next run
+    let updates: any = { ...validatedData };
+    if (validatedData.schedule?.frequency) {
+      updates.schedule = {
+        ...existing.schedule,
+        ...validatedData.schedule,
+        nextRun: calculateNextRun(validatedData.schedule.frequency)
+      };
+    }
     
-    const response: ApiResponse<null> = {
-      success: true
+    await persistenceAdapter.updateSearch(req.params.id, updates);
+    const updated = await persistenceAdapter.getSearch(req.params.id);
+    
+    const response: ApiResponse<Search> = {
+      success: true,
+      data: updated!
     };
     
     res.json(response);
@@ -144,12 +171,13 @@ router.put('/:id', async (req, res) => {
     if (error instanceof z.ZodError) {
       const response: ApiResponse<null> = {
         success: false,
-        error: `Validation error: ${error.errors.map(e => e.message).join(', ')}`
+        error: 'Invalid request data',
+        details: error.errors
       };
       return res.status(400).json(response);
     }
     
-    logger.error(`Failed to update search ${req.params.id}:`, error);
+    logger.error('Failed to update search:', error);
     const response: ApiResponse<null> = {
       success: false,
       error: 'Failed to update search'
@@ -161,15 +189,25 @@ router.put('/:id', async (req, res) => {
 // Delete search
 router.delete('/:id', async (req, res) => {
   try {
-    await firebaseService.deleteSearch(req.params.id);
+    const existing = await persistenceAdapter.getSearch(req.params.id);
+    if (!existing) {
+      const response: ApiResponse<null> = {
+        success: false,
+        error: 'Search not found'
+      };
+      return res.status(404).json(response);
+    }
     
-    const response: ApiResponse<null> = {
-      success: true
+    await persistenceAdapter.deleteSearch(req.params.id);
+    
+    const response: ApiResponse<{ message: string }> = {
+      success: true,
+      data: { message: 'Search deleted successfully' }
     };
     
     res.json(response);
   } catch (error) {
-    logger.error(`Failed to delete search ${req.params.id}:`, error);
+    logger.error('Failed to delete search:', error);
     const response: ApiResponse<null> = {
       success: false,
       error: 'Failed to delete search'
@@ -182,16 +220,16 @@ router.delete('/:id', async (req, res) => {
 router.get('/:id/results', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
-    const results = await firebaseService.getSearchResults(req.params.id, limit);
+    const results = await persistenceAdapter.getSearchResults(req.params.id, limit);
     
-    const response: ApiResponse<any> = {
+    const response: ApiResponse<any[]> = {
       success: true,
       data: results
     };
     
     res.json(response);
   } catch (error) {
-    logger.error(`Failed to get results for search ${req.params.id}:`, error);
+    logger.error('Failed to get search results:', error);
     const response: ApiResponse<null> = {
       success: false,
       error: 'Failed to get search results'
@@ -200,31 +238,35 @@ router.get('/:id/results', async (req, res) => {
   }
 });
 
-function calculateInitialNextRun(frequency: string): Date {
+// Helper function to calculate next run time
+function calculateNextRun(frequency: string): Date {
   const now = new Date();
   const next = new Date(now);
-  
-  // Start immediately for first run
+
   switch (frequency) {
     case 'every_30_min':
-      next.setMinutes(next.getMinutes() + 1);
+      next.setMinutes(next.getMinutes() + 30);
       break;
     case 'hourly':
-      next.setMinutes(next.getMinutes() + 1);
+      next.setHours(next.getHours() + 1);
+      next.setMinutes(0);
       break;
     case 'every_2_hours':
-      next.setMinutes(next.getMinutes() + 1);
+      next.setHours(next.getHours() + 2);
+      next.setMinutes(0);
       break;
     case 'every_4_hours':
-      next.setMinutes(next.getMinutes() + 1);
+      next.setHours(next.getHours() + 4);
+      next.setMinutes(0);
       break;
     case 'daily':
-      next.setMinutes(next.getMinutes() + 1);
+      next.setDate(next.getDate() + 1);
+      next.setHours(9, 0, 0, 0);
       break;
     default:
-      next.setMinutes(next.getMinutes() + 1);
+      next.setHours(next.getHours() + 1);
   }
-  
+
   return next;
 }
 

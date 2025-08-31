@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { storageService } from '../services/storage.js';
+import { createStorageService, AdapterType } from '../services/storage.js';
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import inquirer from 'inquirer';
@@ -10,32 +10,43 @@ export const listCommand = new Command('list')
   .option('-d, --delete <searchId>', 'Delete a saved search')
   .option('-e, --enable <searchId>', 'Enable a search')
   .option('--disable <searchId>', 'Disable a search')
+  .option('--remote', 'Use remote Firebase storage')
+  .option('--local', 'Use local SQLite storage (default)')
   .action(async (options) => {
     try {
-      await storageService.initialize();
+      // Determine which adapter to use
+      let adapterType: AdapterType | undefined;
+      if (options.remote) {
+        adapterType = 'firebase';
+      } else if (options.local) {
+        adapterType = 'sqlite';
+      }
+      
+      // Create storage service with appropriate adapter
+      const storageService = await createStorageService(adapterType);
 
       if (options.delete) {
-        await deleteSearch(options.delete);
+        await deleteSearch(options.delete, storageService);
         return;
       }
 
       if (options.enable) {
-        await toggleSearch(options.enable, true);
+        await toggleSearch(options.enable, true, storageService);
         return;
       }
 
       if (options.disable) {
-        await toggleSearch(options.disable, false);
+        await toggleSearch(options.disable, false, storageService);
         return;
       }
 
       if (options.results) {
-        await showSearchResults(options.results);
+        await showSearchResults(options.results, storageService);
         return;
       }
 
       // List all searches
-      await listAllSearches();
+      await listAllSearches(storageService);
 
     } catch (error) {
       console.error(chalk.red('Error:'), error);
@@ -43,7 +54,7 @@ export const listCommand = new Command('list')
     }
   });
 
-async function listAllSearches(): Promise<void> {
+async function listAllSearches(storageService: any): Promise<void> {
   const searches = await storageService.getAllSearches();
 
   if (searches.length === 0) {
@@ -87,7 +98,7 @@ async function listAllSearches(): Promise<void> {
   console.log(chalk.gray('Use "holiday-park list -r <id>" to see results for a search'));
 }
 
-async function showSearchResults(searchId: string): Promise<void> {
+async function showSearchResults(searchId: string, storageService: any): Promise<void> {
   const search = await storageService.getSearch(searchId);
   
   if (!search) {
@@ -180,7 +191,7 @@ async function showSearchResults(searchId: string): Promise<void> {
   }
 }
 
-async function deleteSearch(searchId: string): Promise<void> {
+async function deleteSearch(searchId: string, storageService: any): Promise<void> {
   const search = await storageService.getSearch(searchId);
   
   if (!search) {
@@ -203,7 +214,7 @@ async function deleteSearch(searchId: string): Promise<void> {
   }
 }
 
-async function toggleSearch(searchId: string, enable: boolean): Promise<void> {
+async function toggleSearch(searchId: string, enable: boolean, storageService: any): Promise<void> {
   const search = await storageService.getSearch(searchId);
   
   if (!search) {
