@@ -1,0 +1,49 @@
+# .gcloudignore for Cloud Build
+# This file specifies files that are *not* uploaded to Google Cloud Platform
+
+# Ignore version control
+.git
+.gitignore
+
+# Ignore common development files
+.env
+*.env.local
+*.env.development
+*.env.test
+
+# Ignore build outputs (we'll build fresh)
+**/dist
+**/build
+**/.next
+
+# Ignore node_modules (we'll install fresh)
+**/node_modules
+
+# Ignore development files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Ignore test files
+**/*.test.js
+**/*.test.ts
+**/*.spec.js
+**/*.spec.ts
+
+# Ignore documentation
+*.md
+!README.md
+
+# Don't ignore these critical files
+!package.json
+!package-lock.json
+!apps/api/package.json
+!apps/api/package-lock.json
+!packages/shared/package.json
+!packages/shared/package-lock.json
+!tsconfig.json
+!apps/api/tsconfig.json
+!packages/shared/tsconfig.json
