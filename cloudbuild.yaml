@@ -1,4 +1,8 @@
 steps:
+  # Debug: List files to verify build context
+  - name: 'alpine'
+    args: ['sh', '-c', 'ls -la && ls -la apps/api/ && ls -la packages/shared/']
+  
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -59,5 +63,4 @@ images:
   - 'gcr.io/$PROJECT_ID/holiday-park-api:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/holiday-park-api:latest'
 
-options:
-  logging: CLOUD_LOGGING_ONLY
+# Removed logging options to use default
