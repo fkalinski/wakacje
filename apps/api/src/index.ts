@@ -17,6 +17,12 @@ import { apiLimiter, adaptiveLimiter, requestTracker } from './middleware/rateLi
 // Load environment variables
 dotenv.config();
 
+// Fix Firebase private key format from Secret Manager
+// Secret Manager stores newlines as literal \n, we need actual newlines
+if (process.env.FIREBASE_PRIVATE_KEY) {
+  process.env.FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+}
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 

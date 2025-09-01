@@ -24,11 +24,15 @@ if (!hasFirebaseCredentials) {
 }
 
 // Create and export a singleton instance of the Firebase persistence adapter
+// API always uses service account authentication (unlike CLI which uses OAuth2)
 export const persistenceAdapter = hasFirebaseCredentials 
   ? new FirebasePersistenceAdapter({
-      projectId: process.env.FIREBASE_PROJECT_ID!,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY!,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+      authMode: 'service-account' as const,
+      serviceAccount: {
+        projectId: process.env.FIREBASE_PROJECT_ID!,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY!,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+      },
       logger: {
         debug: (msg: string, ...args: any[]) => logger.debug(msg, ...args),
         info: (msg: string, ...args: any[]) => logger.info(msg, ...args),
