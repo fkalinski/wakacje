@@ -33,6 +33,6 @@ Automatic deployment test: 2025-08-31 22:15:00 ✅
 | Cloud Build | ⚠️ Failing | Docker build step fails - debugging in progress |
 
 ### Latest Build IDs
-- Cloud Build: cb271d7d-834e-48c8-9dda-02ef16f62af9
-- Issue: Docker build fails at step 2
-- Next steps: Check logs in Cloud Console for detailed error
+- Cloud Build: 89c8361f-0377-4e45-b608-134a1a33e6bd
+- Issue: Fixed permissions - Logs Writer and Storage Admin added
+- Test: Triggering new build with proper permissions
