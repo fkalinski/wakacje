@@ -55,9 +55,9 @@ steps:
       - '--service-account'
       - 'holiday-park-api@ai-lab-1-451411.iam.gserviceaccount.com'
       - '--set-env-vars'
-      - 'NODE_ENV=production,FIREBASE_PROJECT_ID=ai-lab-1-451411'
+      - 'NODE_ENV=production,FIREBASE_PROJECT_ID=ai-lab-1-451411,CORS_ORIGIN=https://wakacje-ejy32w34d-fkalinskis-projects.vercel.app'
       - '--update-secrets'
-      - 'JWT_SECRET=jwt-secret:latest,SCHEDULER_TOKEN=scheduler-token:latest'
+      - 'JWT_SECRET=jwt-secret:latest,SCHEDULER_TOKEN=scheduler-token:latest,FIREBASE_PRIVATE_KEY=firebase-private-key:latest,FIREBASE_CLIENT_EMAIL=firebase-client-email:latest'
 
 images:
   - 'gcr.io/$PROJECT_ID/holiday-park-api:$COMMIT_SHA'
