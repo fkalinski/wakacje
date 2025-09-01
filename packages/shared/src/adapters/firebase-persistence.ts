@@ -489,7 +489,7 @@ export class FirebasePersistenceAdapter implements IPersistenceAdapter {
       }
       
       if (!options.includeRemoved) {
-        query = query.where('isRemoved', '!=', true);
+        // Note: Removed isRemoved filter - will filter in memory due to Firestore limitations with != in collection groups
       }
       
       if (options.onlyNew) {
@@ -675,7 +675,7 @@ export class FirebasePersistenceAdapter implements IPersistenceAdapter {
         query = query.where('dateFrom', '>=', from).where('dateTo', '<=', to);
       }
       
-      query = query.where('isRemoved', '!=', true);
+      // Note: Removed isRemoved filter - will filter in memory due to Firestore limitations with != in collection groups
       
       // Get all matching documents for statistics
       const snapshot = await query.get();
@@ -827,13 +827,15 @@ export class FirebasePersistenceAdapter implements IPersistenceAdapter {
         }
       }
       
-      query = query.where('isRemoved', '!=', true);
+      // Note: Removed isRemoved filter - will filter in memory due to Firestore limitations with != in collection groups
       
       const snapshot = await query.get();
       const resortMap = new Map<number, { name: string; count: number }>();
       
       snapshot.docs.forEach(doc => {
         const data = doc.data();
+        // Filter out removed items
+        if (data.isRemoved === true) return;
         const current = resortMap.get(data.resortId) || { name: data.resortName, count: 0 };
         current.count++;
         resortMap.set(data.resortId, current);
@@ -862,13 +864,15 @@ export class FirebasePersistenceAdapter implements IPersistenceAdapter {
         }
       }
       
-      query = query.where('isRemoved', '!=', true);
+      // Note: Removed isRemoved filter - will filter in memory due to Firestore limitations with != in collection groups
       
       const snapshot = await query.get();
       const typeMap = new Map<number, { name: string; count: number }>();
       
       snapshot.docs.forEach(doc => {
         const data = doc.data();
+        // Filter out removed items
+        if (data.isRemoved === true) return;
         const current = typeMap.get(data.accommodationTypeId) || { name: data.accommodationTypeName, count: 0 };
         current.count++;
         typeMap.set(data.accommodationTypeId, current);
@@ -897,13 +901,15 @@ export class FirebasePersistenceAdapter implements IPersistenceAdapter {
         }
       }
       
-      query = query.where('isRemoved', '!=', true);
+      // Note: Removed isRemoved filter - will filter in memory due to Firestore limitations with != in collection groups
       
       const snapshot = await query.get();
       const nightsMap = new Map<number, number>();
       
       snapshot.docs.forEach(doc => {
         const data = doc.data();
+        // Filter out removed items
+        if (data.isRemoved === true) return;
         nightsMap.set(data.nights, (nightsMap.get(data.nights) || 0) + 1);
       });
       
@@ -930,10 +936,13 @@ export class FirebasePersistenceAdapter implements IPersistenceAdapter {
         }
       }
       
-      query = query.where('isRemoved', '!=', true);
+      // Note: Removed isRemoved filter - will filter in memory due to Firestore limitations with != in collection groups
       
       const snapshot = await query.get();
-      const dates = snapshot.docs.map(doc => doc.data().dateFrom).filter(d => d);
+      const dates = snapshot.docs
+        .map(doc => doc.data())
+        .filter(data => data.isRemoved !== true && data.dateFrom)
+        .map(data => data.dateFrom);
       
       return {
         earliest: dates.length > 0 ? dates.sort()[0] : '',

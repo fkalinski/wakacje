@@ -1,9 +1,39 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables FIRST before importing any modules that use them
+const envPath = path.resolve(__dirname, '../.env');
+const result = dotenv.config({ path: envPath });
+
+if (result.error) {
+  console.error('Failed to load .env file:', result.error);
+  console.error('Looking for .env at:', envPath);
+} else {
+  console.log('Loaded environment variables from:', envPath);
+  console.log('FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set');
+  console.log('FIREBASE_CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL ? 'Set' : 'Not set');
+  console.log('FIREBASE_PRIVATE_KEY:', process.env.FIREBASE_PRIVATE_KEY ? 'Set (length: ' + process.env.FIREBASE_PRIVATE_KEY.length + ')' : 'Not set');
+}
+
+// Fix Firebase private key format immediately after loading env
+if (process.env.FIREBASE_PRIVATE_KEY) {
+  process.env.FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+}
+
+// Initialize Firebase Admin SDK after env vars are loaded
+import { initializeFirebaseAdmin } from './config/firebase-admin';
+initializeFirebaseAdmin();
+
+// Initialize persistence adapter after env vars are loaded
+import { initializePersistence } from './services/persistence';
+initializePersistence();
+
 import { logger } from './utils/logger';
 import searchesRouter from './routes/searches';
 import executeRouter from './routes/execute';
+import executionsRouter from './routes/executions';
 import webhooksRouter from './routes/webhooks';
 import monitoringRouter from './routes/monitoring';
 import resultsRouter from './routes/results';
@@ -11,17 +41,8 @@ import healthRouter from './routes/health';
 
 // Security middleware
 import { security } from './middleware/security';
-import { jwtMiddleware, validateApiKey, requireAuth, optionalAuth } from './middleware/auth';
+import { authMiddleware } from './middleware/auth';
 import { adaptiveLimiter, requestTracker } from './middleware/rateLimiter';
-
-// Load environment variables
-dotenv.config();
-
-// Fix Firebase private key format from Secret Manager
-// Secret Manager stores newlines as literal \n, we need actual newlines
-if (process.env.FIREBASE_PRIVATE_KEY) {
-  process.env.FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
-}
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -50,10 +71,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Request tracking and logging
 app.use(requestTracker);
 
-// JWT and API key authentication middleware (applied to all routes)
-app.use(jwtMiddleware);
-app.use(validateApiKey);
-
 // Global rate limiting (adaptive based on auth status)
 app.use('/api', adaptiveLimiter);
 
@@ -61,13 +78,12 @@ app.use('/api', adaptiveLimiter);
 app.use('/health', healthRouter);
 
 // API Routes with authentication
-// Public routes (optional auth - enhanced features with auth)
-app.use('/api/searches', optionalAuth, searchesRouter);
-app.use('/api/results', optionalAuth, resultsRouter);
-
-// Protected routes (require authentication)
-app.use('/api/execute', optionalAuth, executeRouter);  // Changed to optional auth - will validate ownership in route
-app.use('/api/monitoring', requireAuth, monitoringRouter);
+// Protected routes (require Firebase authentication)
+app.use('/api/searches', authMiddleware, searchesRouter);
+app.use('/api/results', authMiddleware, resultsRouter);
+app.use('/api/execute', authMiddleware, executeRouter);
+app.use('/api/executions', authMiddleware, executionsRouter);
+app.use('/api/monitoring', authMiddleware, monitoringRouter);
 
 // Webhook routes (special authentication - uses scheduler token)
 app.use('/api/webhooks', webhooksRouter); // Has its own auth middleware

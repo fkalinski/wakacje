@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { persistenceAdapter } from '../services/persistence';
+import { getPersistenceAdapter } from '../services/persistence';
 import { Search, ApiResponse } from '@holiday-park/shared';
 import { logger } from '../utils/logger';
 
@@ -32,6 +32,7 @@ const updateSearchSchema = createSearchSchema.partial();
 // Get all searches
 router.get('/', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
     if (!persistenceAdapter) {
       return res.status(503).json({
         success: false,
@@ -63,6 +64,13 @@ router.get('/', async (req, res) => {
 // Get single search
 router.get('/:id', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
+    if (!persistenceAdapter) {
+      return res.status(503).json({
+        success: false,
+        error: 'Persistence layer not available'
+      });
+    }
     const search = await persistenceAdapter.getSearch(req.params.id);
     
     if (!search) {
@@ -92,6 +100,13 @@ router.get('/:id', async (req, res) => {
 // Create new search
 router.post('/', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
+    if (!persistenceAdapter) {
+      return res.status(503).json({
+        success: false,
+        error: 'Persistence layer not available'
+      });
+    }
     const validatedData = createSearchSchema.parse(req.body);
     
     // Calculate next run time based on frequency
@@ -137,6 +152,13 @@ router.post('/', async (req, res) => {
 // Update search
 router.put('/:id', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
+    if (!persistenceAdapter) {
+      return res.status(503).json({
+        success: false,
+        error: 'Persistence layer not available'
+      });
+    }
     const validatedData = updateSearchSchema.parse(req.body);
     
     const existing = await persistenceAdapter.getSearch(req.params.id);
@@ -189,6 +211,13 @@ router.put('/:id', async (req, res) => {
 // Delete search
 router.delete('/:id', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
+    if (!persistenceAdapter) {
+      return res.status(503).json({
+        success: false,
+        error: 'Persistence layer not available'
+      });
+    }
     const existing = await persistenceAdapter.getSearch(req.params.id);
     if (!existing) {
       const response: ApiResponse<null> = {
@@ -219,6 +248,13 @@ router.delete('/:id', async (req, res) => {
 // Get search results
 router.get('/:id/results', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
+    if (!persistenceAdapter) {
+      return res.status(503).json({
+        success: false,
+        error: 'Persistence layer not available'
+      });
+    }
     const limit = parseInt(req.query.limit as string) || 10;
     const results = await persistenceAdapter.getSearchResults(req.params.id, limit);
     

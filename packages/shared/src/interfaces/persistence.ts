@@ -1,4 +1,5 @@
-import { Search, SearchResult, SearchExecution, NotificationLog } from '../types';
+import { Search, SearchResult, SearchExecution, NotificationLog, Availability } from '../types';
+import { IQueryOptions, IResultStats, IPaginatedResults } from '../types/query';
 
 export interface IPersistenceAdapter {
   // Search Management
@@ -24,6 +25,18 @@ export interface IPersistenceAdapter {
   // Notification Logs
   logNotification(log: Omit<NotificationLog, 'id'>): Promise<string>;
   getNotificationLogs(searchId: string, limit?: number): Promise<NotificationLog[]>;
+
+  // Query and Filter Methods
+  queryAvailabilities(options: IQueryOptions): Promise<IPaginatedResults<Availability>>;
+  getResultsWithFilters(options?: IQueryOptions): Promise<IPaginatedResults<SearchResult>>;
+  getResultsStatistics(options?: IQueryOptions): Promise<IResultStats>;
+  exportResults(format: 'csv' | 'json', options?: IQueryOptions): Promise<string>;
+  
+  // Filter Options Methods
+  getUniqueResorts(searchId?: string): Promise<Array<{ id: number; name: string; count: number }>>;
+  getUniqueAccommodationTypes(searchId?: string): Promise<Array<{ id: number; name: string; count: number }>>;
+  getUniqueStayLengths(searchId?: string): Promise<Array<{ nights: number; count: number }>>;
+  getDateRange(searchId?: string): Promise<{ earliest: string; latest: string }>;
 
   // Lifecycle
   initialize?(): Promise<void>;

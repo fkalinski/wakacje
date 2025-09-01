@@ -8,6 +8,7 @@ import { IQueryOptions, IPaginatedResults } from '@/lib/api-client-extended';
 import { apiExtended } from '@/lib/api-client-extended';
 import { ResultsTable } from '@/components/ResultsTable';
 import { ResultsFilter } from '@/components/ResultsFilter';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 import toast from 'react-hot-toast';
 
 function ResultsContent() {
@@ -83,20 +84,31 @@ function ResultsContent() {
   const totalPages = results ? Math.ceil(results.total / pageSize) : 0;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Search Results</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <a 
+            href="/"
+            className="text-primary-600 hover:text-primary-700 flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Searches
+          </a>
+          <h2 className="text-3xl font-bold text-gray-900">Search Results</h2>
+        </div>
         
         <div className="flex gap-2">
           <button
             onClick={() => handleExport('csv')}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
           >
             Export CSV
           </button>
           <button
             onClick={() => handleExport('json')}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
           >
             Export JSON
           </button>
@@ -128,8 +140,10 @@ function ResultsContent() {
 
 export default function ResultsPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <ResultsContent />
-    </Suspense>
+    <AuthGuard>
+      <Suspense fallback={<div>Loading...</div>}>
+        <ResultsContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

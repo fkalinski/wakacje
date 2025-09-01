@@ -1,8 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { expressjwt } from 'express-jwt';
+import { admin, isFirebaseInitialized } from '../config/firebase-admin';
 import { logger } from '../utils/logger';
-// import { persistenceAdapter } from '../services/persistence';
+
+// Whitelisted users - must match web app whitelist
+const ALLOWED_USERS = [
+  'fkalinski@gmail.com'
+  // Add more emails here as needed
+];
 
 // Extend Express Request type
 declare global {
@@ -11,129 +15,108 @@ declare global {
     interface Request {
       user?: {
         uid: string;
-        email?: string;
-        role?: string;
-        apiKey?: boolean;
+        email: string;
+        emailVerified: boolean;
       };
-      apiKey?: string;
     }
   }
 }
 
-// JWT configuration
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_ISSUER = process.env.JWT_ISSUER || 'holiday-park-api';
-const JWT_AUDIENCE = process.env.JWT_AUDIENCE || 'holiday-park-client';
-
-// API Key header name
-const API_KEY_HEADER = 'x-api-key';
+const isUserAllowed = (email: string | undefined): boolean => {
+  if (!email) return false;
+  return ALLOWED_USERS.includes(email.toLowerCase());
+};
 
 /**
- * Generate JWT token for a user
+ * Firebase Authentication middleware
+ * Verifies Firebase ID tokens and enforces whitelist
  */
-export function generateToken(userId: string, email?: string, role: string = 'user'): string {
-  const payload = {
-    uid: userId,
-    email,
-    role
-  };
-  
-  const options: jwt.SignOptions = {
-    expiresIn: '7d',
-    issuer: JWT_ISSUER,
-    audience: JWT_AUDIENCE,
-    subject: userId
-  };
-  
-  return jwt.sign(payload, JWT_SECRET, options);
-}
-
-/**
- * Generate API key token
- */
-export function generateApiKeyToken(apiKeyId: string, name: string): string {
-  const payload = {
-    uid: apiKeyId,
-    apiKey: true,
-    name
-  };
-  
-  const options: jwt.SignOptions = {
-    expiresIn: '365d', // API keys have longer expiry
-    issuer: JWT_ISSUER,
-    audience: JWT_AUDIENCE,
-    subject: apiKeyId
-  };
-  
-  return jwt.sign(payload, JWT_SECRET, options);
-}
-
-/**
- * JWT middleware using express-jwt
- */
-export const jwtMiddleware = expressjwt({
-  secret: JWT_SECRET,
-  algorithms: ['HS256'],
-  issuer: JWT_ISSUER,
-  audience: JWT_AUDIENCE,
-  credentialsRequired: false, // Don't require auth for all routes
-  getToken: (req: Request) => {
-    // Check Authorization header
-    if (req.headers.authorization?.startsWith('Bearer ')) {
-      return req.headers.authorization.substring(7);
-    }
-    
-    // Check for API key
-    const apiKey = req.headers[API_KEY_HEADER] as string;
-    if (apiKey) {
-      req.apiKey = apiKey;
-      return apiKey;
-    }
-    
-    return undefined;
-  }
-});
-
-/**
- * Validate API key from database
- */
-export async function validateApiKey(req: Request, res: Response, next: NextFunction) {
+export const authMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const apiKey = req.headers[API_KEY_HEADER] as string;
-    
-    if (!apiKey) {
+    // Skip auth for health check and scheduler endpoints
+    if (req.path === '/health' || req.path === '/api/webhooks/scheduler') {
       return next();
     }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      logger.warn('Missing or invalid authorization header', {
+        path: req.path,
+        ip: req.ip
+      });
+      return res.status(401).json({ 
+        success: false,
+        error: 'Unauthorized: Missing or invalid token' 
+      });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
     
-    // Verify it's a valid JWT
-    try {
-      const decoded = jwt.verify(apiKey, JWT_SECRET, {
-        issuer: JWT_ISSUER,
-        audience: JWT_AUDIENCE
-      }) as any;
-      
-      if (decoded.apiKey) {
-        // Check if API key is still valid in database
-        // This would require a Firestore query to validate
-        req.user = {
-          uid: decoded.uid,
-          apiKey: true,
-          role: 'api'
-        };
-      }
-    } catch (err) {
-      logger.warn('Invalid API key provided', { error: err });
+    // Check if Firebase is initialized
+    if (!isFirebaseInitialized) {
+      logger.error('Firebase Admin not initialized - cannot verify tokens');
+      return res.status(503).json({ 
+        success: false,
+        error: 'Authentication service unavailable' 
+      });
     }
     
-    next();
+    try {
+      // Verify the Firebase ID token
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      
+      // Check if user is whitelisted
+      if (!isUserAllowed(decodedToken.email)) {
+        logger.warn('Access denied for non-whitelisted user', {
+          email: decodedToken.email,
+          uid: decodedToken.uid
+        });
+        return res.status(403).json({ 
+          success: false,
+          error: 'Access denied: User not authorized',
+          email: decodedToken.email 
+        });
+      }
+
+      // Attach user info to request
+      req.user = {
+        uid: decodedToken.uid,
+        email: decodedToken.email!,
+        emailVerified: decodedToken.email_verified || false
+      };
+
+      logger.info('User authenticated successfully', {
+        email: req.user.email,
+        uid: req.user.uid
+      });
+
+      next();
+    } catch (error: any) {
+      logger.error('Token verification failed:', {
+        error: error.message,
+        code: error.code
+      });
+      return res.status(401).json({ 
+        success: false,
+        error: 'Unauthorized: Invalid token' 
+      });
+    }
   } catch (error) {
-    logger.error('Error validating API key:', error);
-    next();
+    logger.error('Auth middleware error:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: 'Internal server error' 
+    });
   }
-}
+};
 
 /**
  * Require authentication middleware
+ * Use this on routes that require authentication
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
@@ -146,68 +129,40 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 /**
- * Require specific role middleware
- */
-export function requireRole(role: string) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required'
-      });
-    }
-    
-    if (req.user.role !== role && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Insufficient permissions'
-      });
-    }
-    
-    next();
-  };
-}
-
-/**
- * Require admin role middleware
- */
-export const requireAdmin = requireRole('admin');
-
-/**
  * Optional authentication middleware
  * Validates token if present but doesn't require it
  */
-export function optionalAuth(req: Request, res: Response, next: NextFunction) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  const apiKey = req.headers[API_KEY_HEADER] as string;
+export const optionalAuth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const authHeader = req.headers.authorization;
   
-  if (!token && !apiKey) {
-    return next();
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next(); // No token provided, continue without auth
   }
+
+  const token = authHeader.split('Bearer ')[1];
   
   try {
-    if (token) {
-      const decoded = jwt.verify(token, JWT_SECRET, {
-        issuer: JWT_ISSUER,
-        audience: JWT_AUDIENCE
-      }) as any;
-      
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    
+    // Check if user is whitelisted
+    if (isUserAllowed(decodedToken.email)) {
       req.user = {
-        uid: decoded.uid,
-        email: decoded.email,
-        role: decoded.role
+        uid: decodedToken.uid,
+        email: decodedToken.email!,
+        emailVerified: decodedToken.email_verified || false
       };
-    } else if (apiKey) {
-      // Handle API key validation
-      validateApiKey(req, res, next);
-      return;
     }
   } catch (error) {
-    logger.warn('Invalid token provided:', error);
+    logger.warn('Optional auth: Invalid token provided', error);
+    // Continue without auth for optional routes
   }
   
   next();
-}
+};
 
 /**
  * Cloud Scheduler authentication middleware
@@ -245,8 +200,7 @@ export function getUserContext(req: Request) {
   return {
     userId: req.user?.uid,
     email: req.user?.email,
-    role: req.user?.role,
-    isApiKey: req.user?.apiKey === true,
+    emailVerified: req.user?.emailVerified,
     ip: req.ip,
     userAgent: req.headers['user-agent']
   };

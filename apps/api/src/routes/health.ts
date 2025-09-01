@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { logger } from '../utils/logger';
-import { persistenceAdapter } from '../services/persistence';
+import { getPersistenceAdapter } from '../services/persistence';
 import { healthCheckLimiter } from '../middleware/rateLimiter';
 import os from 'os';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -72,6 +72,7 @@ router.get('/detailed', healthCheckLimiter, async (req: Request, res: Response) 
     // Check Firebase/Firestore connectivity
     try {
       const firebaseStart = Date.now();
+      const persistenceAdapter = getPersistenceAdapter();
       
       if (persistenceAdapter) {
         // Try a simple read operation
@@ -151,6 +152,7 @@ router.get('/ready', healthCheckLimiter, async (_req: Request, res: Response) =>
     
     // Check Firebase connection
     try {
+      const persistenceAdapter = getPersistenceAdapter();
       if (persistenceAdapter) {
         const testCollection = getFirestore().collection('_health_check');
         await testCollection.doc('test').get();

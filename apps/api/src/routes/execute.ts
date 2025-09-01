@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { searchExecutorService } from '../services/search-executor';
-import { persistenceAdapter } from '../services/persistence';
+import { getPersistenceAdapter } from '../services/persistence';
 import { ApiResponse } from '@holiday-park/shared';
 import { logger } from '../utils/logger';
 
@@ -10,6 +10,14 @@ const router = Router();
 router.post('/:id', async (req, res) => {
   try {
     const searchId = req.params.id;
+    const persistenceAdapter = getPersistenceAdapter();
+    
+    if (!persistenceAdapter) {
+      return res.status(503).json({
+        success: false,
+        error: 'Persistence layer not available'
+      });
+    }
     
     // Check if search exists
     const search = await persistenceAdapter.getSearch(searchId);
@@ -23,7 +31,7 @@ router.post('/:id', async (req, res) => {
     
     // If auth is provided, validate ownership (optional for now during testing)
     // In production, you might want to make this required
-    if (req.user && search.userId && search.userId !== req.user.uid) {
+    if (req.user && search.userId && search.userId !== req.user.email) {
       const response: ApiResponse<null> = {
         success: false,
         error: 'Unauthorized to execute this search'

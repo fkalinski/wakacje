@@ -42,6 +42,7 @@ export interface Search {
   };
   createdAt?: Date;
   updatedAt?: Date;
+  userId?: string; // User who owns this search
 }
 
 export interface Availability {
@@ -73,13 +74,14 @@ export interface SearchResult {
 
 export interface SearchExecution {
   searchId: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   startedAt: Date;
   completedAt?: Date;
   totalChecks: number;
   completedChecks: number;
   foundAvailabilities: number;
   error?: string;
+  id?: string; // Add optional id field
 }
 
 export interface NotificationLog {

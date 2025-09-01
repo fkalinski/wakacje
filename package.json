@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "turbo dev",
+    "dev:local": "concurrently \"npm run api:dev\" \"npm run web:dev:local\"",
     "build": "turbo build",
     "start": "turbo start",
     "lint": "turbo lint",
@@ -17,10 +18,12 @@
     "prepare": "node -e \"if (process.env.NODE_ENV !== 'production') { require('child_process').execSync('husky', {stdio: 'inherit'}); }\" || true",
     "api:dev": "npm run dev --workspace=@holiday-park/api",
     "web:dev": "npm run dev --workspace=@holiday-park/web",
+    "web:dev:local": "npm run dev:local --workspace=@holiday-park/web",
     "api:build": "npm run build --workspace=@holiday-park/api",
     "web:build": "npm run build --workspace=@holiday-park/web"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.5",
     "turbo": "^1.11.3"

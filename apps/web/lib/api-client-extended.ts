@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Availability, SearchResult } from '@holiday-park/shared/client';
 import { api } from './api-client';
+import { auth } from '@/lib/firebase';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -9,6 +10,20 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+// Add Firebase ID token to all requests
+apiClient.interceptors.request.use(async (config) => {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (error) {
+    console.error('Error getting ID token:', error);
+  }
+  return config;
 });
 
 // Type definitions for extended API

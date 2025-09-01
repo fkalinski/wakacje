@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { persistenceAdapter } from '../services/persistence';
+import { getPersistenceAdapter } from '../services/persistence';
 import { ApiResponse, IQueryOptions } from '@holiday-park/shared';
 import { logger } from '../utils/logger';
 
@@ -54,6 +54,7 @@ function parseQueryOptions(query: any): IQueryOptions {
 // Query all results with filters
 router.get('/', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
     if (!persistenceAdapter) {
       return res.status(503).json({
         success: false,
@@ -83,6 +84,7 @@ router.get('/', async (req, res) => {
 // Query availabilities
 router.get('/availabilities', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
     if (!persistenceAdapter) {
       return res.status(503).json({
         success: false,
@@ -112,6 +114,7 @@ router.get('/availabilities', async (req, res) => {
 // Get statistics
 router.get('/stats', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
     if (!persistenceAdapter) {
       return res.status(503).json({
         success: false,
@@ -144,6 +147,7 @@ router.get('/stats', async (req, res) => {
 // Export results
 router.get('/export', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
     if (!persistenceAdapter) {
       return res.status(503).json({
         success: false,
@@ -182,6 +186,7 @@ router.get('/export', async (req, res) => {
 // Get filter options
 router.get('/filters', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
     if (!persistenceAdapter) {
       return res.status(503).json({
         success: false,
@@ -227,6 +232,7 @@ router.get('/filters', async (req, res) => {
 // Get results for a specific search
 router.get('/search/:searchId', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
     if (!persistenceAdapter) {
       return res.status(503).json({
         success: false,
@@ -256,6 +262,7 @@ router.get('/search/:searchId', async (req, res) => {
 // Get availabilities for a specific search
 router.get('/search/:searchId/availabilities', async (req, res) => {
   try {
+    const persistenceAdapter = getPersistenceAdapter();
     if (!persistenceAdapter) {
       return res.status(503).json({
         success: false,

@@ -5,6 +5,7 @@ import { api } from '@/lib/api-client';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import Link from 'next/link';
+import { ExecutionHistory } from './ExecutionHistory';
 
 interface SearchListProps {
   searches: Search[];
@@ -166,6 +167,11 @@ export function SearchList({ searches, onDelete, onUpdate }: SearchListProps) {
               </p>
             )}
           </div>
+
+          {/* Execution History Section */}
+          {search.id && (
+            <ExecutionHistory searchId={search.id} limit={5} />
+          )}
         </div>
       ))}
     </div>
