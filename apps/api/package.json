@@ -7,8 +7,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint src/",
-    "generate-token": "tsx src/scripts/generateToken.ts",
-    "prepare": "husky"
+    "generate-token": "tsx src/scripts/generateToken.ts"
   },
   "dependencies": {
     "@holiday-park/shared": "*",
@@ -41,8 +40,6 @@
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
     "eslint": "^8.56.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.1.5",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
