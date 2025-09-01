@@ -18,6 +18,8 @@ export function createRateLimiter(options?: {
     standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
     legacyHeaders: false, // Disable `X-RateLimit-*` headers
     skipSuccessfulRequests: options?.skipSuccessfulRequests || false,
+    // Skip validation for trust proxy - we're in Cloud Run which requires trust proxy
+    validate: false,
     // Remove custom keyGenerator to use default IP-based key that handles IPv6 properly
     handler: (req: Request, res: Response) => {
       logger.warn('Rate limit exceeded', {

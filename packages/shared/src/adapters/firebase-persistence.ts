@@ -8,8 +8,8 @@ export type AuthMode = 'service-account' | 'oauth2';
 
 export interface ServiceAccountCredentials {
   projectId: string;
-  privateKey: string;
-  clientEmail: string;
+  privateKey?: string;
+  clientEmail?: string;
 }
 
 export interface OAuth2Credentials {
@@ -90,12 +90,32 @@ export class FirebasePersistenceAdapter implements IPersistenceAdapter {
   }
 
   private initializeWithServiceAccount() {
-    // Support both legacy and new credential format
+    // Check if app is already initialized
+    if (admin.apps.length > 0) {
+      this.logger?.info('Firebase already initialized, skipping');
+      return;
+    }
+
+    // In Cloud Run, use Application Default Credentials if available
+    // This is automatic when the service account is attached to the Cloud Run service
+    if (process.env.K_SERVICE) {
+      this.logger?.info('Running in Cloud Run, using Application Default Credentials');
+      admin.initializeApp({
+        projectId: this.options.serviceAccount?.projectId || this.options.projectId,
+      });
+      return;
+    }
+    
+    // Otherwise use explicit credentials
     const credentials = this.options.serviceAccount || {
       projectId: this.options.projectId!,
       privateKey: this.options.privateKey!,
       clientEmail: this.options.clientEmail!,
     };
+    
+    if (!credentials.privateKey || !credentials.clientEmail) {
+      throw new Error('Private key and client email are required for service account authentication outside Cloud Run');
+    }
     
     const privateKey = credentials.privateKey.replace(/\\n/g, '\n');
     

@@ -1,25 +1,27 @@
 import { FirebasePersistenceAdapter } from '@holiday-park/shared';
 import { logger } from '../utils/logger';
 
-// Check if Firebase credentials are available
+// Check if Firebase credentials are available or if running in Cloud Run
+const isCloudRun = !!process.env.K_SERVICE;
 const hasFirebaseCredentials = 
   process.env.FIREBASE_PROJECT_ID && 
-  process.env.FIREBASE_PRIVATE_KEY && 
-  process.env.FIREBASE_CLIENT_EMAIL;
+  (isCloudRun || (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL));
 
 if (!hasFirebaseCredentials) {
-  logger.warn('Firebase credentials not found in environment variables');
-  logger.warn('API will not be able to persist data. Please configure Firebase credentials.');
-  logger.warn('Missing credentials:', {
+  logger.warn('Firebase configuration not found');
+  logger.warn('API will not be able to persist data. Please configure Firebase.');
+  logger.warn('Configuration status:', {
     projectId: !!process.env.FIREBASE_PROJECT_ID,
+    isCloudRun,
     privateKey: !!process.env.FIREBASE_PRIVATE_KEY,
     clientEmail: !!process.env.FIREBASE_CLIENT_EMAIL
   });
 } else {
-  logger.info('Firebase credentials found:', {
+  logger.info('Firebase configuration found:', {
     projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKeyLength: process.env.FIREBASE_PRIVATE_KEY?.length
+    isCloudRun,
+    usingApplicationDefaultCredentials: isCloudRun,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || 'Using Application Default'
   });
 }
 
@@ -30,8 +32,8 @@ export const persistenceAdapter = hasFirebaseCredentials
       authMode: 'service-account' as const,
       serviceAccount: {
         projectId: process.env.FIREBASE_PROJECT_ID!,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY!,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+        privateKey: isCloudRun ? undefined : process.env.FIREBASE_PRIVATE_KEY!,
+        clientEmail: isCloudRun ? undefined : process.env.FIREBASE_CLIENT_EMAIL!,
       },
       logger: {
         debug: (msg: string, ...args: any[]) => logger.debug(msg, ...args),
