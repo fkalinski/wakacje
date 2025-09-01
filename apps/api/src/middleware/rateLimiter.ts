@@ -10,7 +10,6 @@ export function createRateLimiter(options?: {
   max?: number;
   message?: string;
   skipSuccessfulRequests?: boolean;
-  keyGenerator?: (req: Request) => string;
 }) {
   return rateLimit({
     windowMs: options?.windowMs || 15 * 60 * 1000, // 15 minutes default
@@ -19,10 +18,7 @@ export function createRateLimiter(options?: {
     standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
     legacyHeaders: false, // Disable `X-RateLimit-*` headers
     skipSuccessfulRequests: options?.skipSuccessfulRequests || false,
-    keyGenerator: options?.keyGenerator || ((req: Request) => {
-      // Use IP address as the key, with fallback to a default
-      return req.ip || req.socket.remoteAddress || 'unknown';
-    }),
+    // Remove custom keyGenerator to use default IP-based key that handles IPv6 properly
     handler: (req: Request, res: Response) => {
       logger.warn('Rate limit exceeded', {
         ip: req.ip,
