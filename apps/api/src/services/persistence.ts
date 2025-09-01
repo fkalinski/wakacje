@@ -10,6 +10,17 @@ const hasFirebaseCredentials =
 if (!hasFirebaseCredentials) {
   logger.warn('Firebase credentials not found in environment variables');
   logger.warn('API will not be able to persist data. Please configure Firebase credentials.');
+  logger.warn('Missing credentials:', {
+    projectId: !!process.env.FIREBASE_PROJECT_ID,
+    privateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+    clientEmail: !!process.env.FIREBASE_CLIENT_EMAIL
+  });
+} else {
+  logger.info('Firebase credentials found:', {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKeyLength: process.env.FIREBASE_PRIVATE_KEY?.length
+  });
 }
 
 // Create and export a singleton instance of the Firebase persistence adapter
