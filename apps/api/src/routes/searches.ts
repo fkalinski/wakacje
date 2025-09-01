@@ -149,7 +149,7 @@ router.put('/:id', async (req, res) => {
     }
     
     // If schedule frequency changed, update next run
-    let updates: any = { ...validatedData };
+    const updates: any = { ...validatedData };
     if (validatedData.schedule?.frequency) {
       updates.schedule = {
         ...existing.schedule,

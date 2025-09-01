@@ -10,7 +10,7 @@ interface ResultsFilterProps {
 }
 
 export function ResultsFilter({ onFilterChange, searchId }: ResultsFilterProps) {
-  const [filters, setFilters] = useState<IQueryOptions>({});
+  const [_filters, setFilters] = useState<IQueryOptions>({});
   const [filterOptions, setFilterOptions] = useState<{
     resorts: Array<{ id: number; name: string; count: number }>;
     accommodationTypes: Array<{ id: number; name: string; count: number }>;

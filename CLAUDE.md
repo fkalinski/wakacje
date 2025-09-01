@@ -714,3 +714,5 @@ test: Add persistence adapter tests
 *Last Updated: 2024*
 *Version: 2.0.0*
 *Validated with context7 documentation fetch*
+- never commit without direct ask for it and confirmation
+- always lint and tsc before committing

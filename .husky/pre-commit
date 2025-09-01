@@ -1,0 +1,30 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks..."
+
+# Run TypeScript type checking
+echo "📝 Checking TypeScript types..."
+npm run typecheck
+if [ $? -ne 0 ]; then
+  echo "❌ TypeScript type check failed. Please fix errors before committing."
+  exit 1
+fi
+
+# Run linting
+echo "🧹 Running ESLint..."
+npm run lint:all
+if [ $? -ne 0 ]; then
+  echo "❌ Linting failed. Please fix errors before committing."
+  exit 1
+fi
+
+# Run Turbo build
+echo "🏗️ Running build with Turbo..."
+npm run build
+if [ $? -ne 0 ]; then
+  echo "❌ Build failed. Please fix errors before committing."
+  exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"

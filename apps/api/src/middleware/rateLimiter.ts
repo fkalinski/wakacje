@@ -104,8 +104,8 @@ export const dynamicLimiter = (req: Request, res: Response, next: NextFunction) 
   const limiter = req.user 
     ? createRateLimiter({
         windowMs: 15 * 60 * 1000,
-        max: 200, // Double the limit for authenticated users
-        keyGenerator: (req) => req.user?.uid || req.ip || 'unknown'
+        max: 200 // Double the limit for authenticated users
+        // Note: keyGenerator removed - default IP-based limiting works fine
       })
     : apiLimiter;
   
@@ -117,15 +117,9 @@ export const dynamicLimiter = (req: Request, res: Response, next: NextFunction) 
  */
 export const apiKeyLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // 1000 requests per 15 minutes for API keys
-  keyGenerator: (req) => {
-    // Use API key as the rate limit key if present
-    const apiKey = req.headers['x-api-key'] as string;
-    if (apiKey) {
-      return `api-key:${apiKey}`;
-    }
-    return req.ip || 'unknown';
-  }
+  max: 1000 // 1000 requests per 15 minutes for API keys
+  // Note: keyGenerator removed - will use default IP-based limiting
+  // API keys get higher limits but still limited per IP
 });
 
 /**

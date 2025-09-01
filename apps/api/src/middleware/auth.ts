@@ -2,10 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { expressjwt } from 'express-jwt';
 import { logger } from '../utils/logger';
-import { persistenceAdapter } from '../services/persistence';
+// import { persistenceAdapter } from '../services/persistence';
 
 // Extend Express Request type
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: {

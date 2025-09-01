@@ -12,7 +12,7 @@ import healthRouter from './routes/health';
 // Security middleware
 import { security } from './middleware/security';
 import { jwtMiddleware, validateApiKey, requireAuth, optionalAuth } from './middleware/auth';
-import { apiLimiter, adaptiveLimiter, requestTracker } from './middleware/rateLimiter';
+import { adaptiveLimiter, requestTracker } from './middleware/rateLimiter';
 
 // Load environment variables
 dotenv.config();

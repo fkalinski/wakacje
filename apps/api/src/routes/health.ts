@@ -3,7 +3,6 @@ import { logger } from '../utils/logger';
 import { persistenceAdapter } from '../services/persistence';
 import { healthCheckLimiter } from '../middleware/rateLimiter';
 import os from 'os';
-import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 const router = Router();
@@ -53,8 +52,6 @@ router.get('/', healthCheckLimiter, (_req: Request, res: Response) => {
  * Detailed health check endpoint with dependency checks
  */
 router.get('/detailed', healthCheckLimiter, async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  
   try {
     const health: HealthStatus = {
       status: 'healthy',
