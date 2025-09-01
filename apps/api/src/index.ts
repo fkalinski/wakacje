@@ -66,7 +66,7 @@ app.use('/api/searches', optionalAuth, searchesRouter);
 app.use('/api/results', optionalAuth, resultsRouter);
 
 // Protected routes (require authentication)
-app.use('/api/execute', requireAuth, executeRouter);
+app.use('/api/execute', optionalAuth, executeRouter);  // Changed to optional auth - will validate ownership in route
 app.use('/api/monitoring', requireAuth, monitoringRouter);
 
 // Webhook routes (special authentication - uses scheduler token)
